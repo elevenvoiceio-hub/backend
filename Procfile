@@ -1,0 +1,1 @@
+web: gunicorn VoiceAsService.wsgi:application --log-file -

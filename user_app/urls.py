@@ -1,0 +1,62 @@
+from django.urls import path
+from .views import (
+    AddFavoriteVoice,
+    CreateUser,
+    ForgotPasswordAPIView,
+    GetLoggedInUserView,
+    RegisterUser,
+    LoginUser,
+    ActiveUsersView,
+    RemoveFavoriteVoice,
+    ResendPasswordOTPAPIView,
+    ResetPasswordAPIView,
+    UpdateProfile,
+    GetAllUsers,
+    GetUserByUsernameOrEmail,
+    LogoutUser,
+    DeleteOwnAccount,
+    DeleteUserByAdmin,
+    VerifyEmailAPIView,
+    UpdateUserRoleView,
+)
+
+urlpatterns = [
+    path("register/", RegisterUser.as_view(), name="register"),
+    path("login/", LoginUser.as_view(), name="login"),
+    path("create-user/", CreateUser.as_view(), name="create_subadmin"),
+    path("active-users/", ActiveUsersView.as_view(), name="active_users"),
+    path("update-profile/", UpdateProfile.as_view(), name="update_profile"),
+    path("", GetAllUsers.as_view(), name="get-all-users"),
+    path(
+        "search/",
+        GetUserByUsernameOrEmail.as_view(),
+        name="get-user-by-username-or-email",
+    ),
+    path("logout/", LogoutUser.as_view(), name="logout"),
+    path("delete-account/", DeleteOwnAccount.as_view(), name="delete-own-account"),
+    path(
+        "<int:user_id>/",
+        DeleteUserByAdmin.as_view(),
+        name="delete-user-by-admin",
+    ),
+    path("favorite-voice/", AddFavoriteVoice.as_view(), name="add-favorite-voice"),
+    path(
+        "remove-favorite-voice/<int:voice_id>/",
+        RemoveFavoriteVoice.as_view(),
+        name="remove-favorite-voice",
+    ),
+    path("verify-email/", VerifyEmailAPIView.as_view(), name="verify-email"),
+    path("forgot-password/", ForgotPasswordAPIView.as_view(), name="forgot-password"),
+    path("reset-password/", ResetPasswordAPIView.as_view(), name="reset-password"),
+    path("me/", GetLoggedInUserView.as_view(), name="get-logged-in-user"),
+    path(
+        "resend-password-otp/",
+        ResendPasswordOTPAPIView.as_view(),
+        name="resend-password-otp",
+    ),
+    path(
+        "update-role/<int:user_id>/",
+        UpdateUserRoleView.as_view(),
+        name="update-user-role",
+    ),
+]

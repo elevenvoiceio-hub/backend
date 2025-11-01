@@ -1,0 +1,68 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pyc
+*.pdb
+
+# Virtualenv
+env/
+venv/
+ENV/
+.venv/
+.ENV/
+
+# Django stuff
+*.log
+*.pot
+*.pyc
+local_settings.py
+db.sqlite3
+media/
+staticfiles/
+static_root/
+media_root/
+*.sqlite3
+
+# Migrations (optional – if you auto-gen these)
+**/migrations/*.py
+!**/migrations/__init__.py
+
+# Secrets
+.env
+*.env
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+
+# macOS
+.DS_Store
+
+# Coverage / Testing
+htmlcov/
+.tox/
+.coverage
+coverage.xml
+*.cover
+.pytest_cache/
+nosetests.xml
+test_*.log
+
+# Node (if using frontend stuff)
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# Build
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# Docker
+*.pid
+*.lock
+docker-compose.override.yml
