@@ -1,0 +1,20 @@
+steps:
+# 1. Build the Docker image
+- name: 'gcr.io/cloud-builders/docker'
+  args: [
+    'build',
+    '-t',
+    'asia-south1-docker.pkg.dev/savvy-camp-476903-h5/backend/my-image:$COMMIT_SHA',
+    '.'
+  ]
+
+# 2. Push the Docker image to Artifact Registry
+- name: 'gcr.io/cloud-builders/docker'
+  args: [
+    'push',
+    'asia-south1-docker.pkg.dev/savvy-camp-476903-h5/backend/my-image:$COMMIT_SHA'
+  ]
+
+# The image to be stored in Artifact Registry after the build is complete.
+images:
+- 'asia-south1-docker.pkg.dev/savvy-camp-476903-h5/backend/my-image:$COMMIT_SHA'
