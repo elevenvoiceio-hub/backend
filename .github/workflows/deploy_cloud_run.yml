@@ -1,4 +1,4 @@
-name: CI/CD → Cloud Run (Cloud SQL + Secret Manager)
+name: CI/CD → Cloud Run 
 
 on:
   push:
@@ -30,7 +30,6 @@ jobs:
       - name: Generate migrations in CI & run tests
         run: |
           python manage.py makemigrations --noinput
-          # optional: run tests (remove || true to fail on test failures)
           python manage.py test || true
 
       - name: Authenticate to GCP (for Docker + gcloud)
@@ -38,9 +37,33 @@ jobs:
         with:
           credentials_json: '${{ secrets.GCP_SA_KEY }}'
 
+      - name: Verify auth (temporary)
+        run: |
+          echo "gcloud auth list:"
+          gcloud auth list
+          echo "Active account:"
+          gcloud config get-value account || true
+          echo "Project:"
+          gcloud config get-value project || true
+
       - name: Configure Docker auth for GCR
         run: |
+          # ensure docker uses gcloud credential helper
           gcloud auth configure-docker --quiet
+          echo "docker-credential-gcloud configured."
+
+      - name: Debug auth & image (temporary)
+        run: |
+          IMAGE_URI="${{ env.GCR_HOST }}/${{ secrets.GCP_PROJECT_ID }}/${{ env.SERVICE_NAME }}:${{ github.sha }}"
+          echo ">>> IMAGE_URI will be: ${IMAGE_URI}"
+          echo ">>> gcloud auth list"
+          gcloud auth list || true
+          echo ">>> gcloud config list"
+          gcloud config list || true
+          echo ">>> docker info"
+          docker info || true
+          echo ">>> docker images (local)"
+          docker images --format "table {{.Repository}}:{{.Tag}}\t{{.Size}}" || true
 
       - name: Build Docker image
         run: |
@@ -50,6 +73,7 @@ jobs:
 
       - name: Push Docker image
         run: |
+          echo "Pushing ${IMAGE_URI} ..."
           docker push "${IMAGE_URI}"
 
       - name: Deploy to Cloud Run (with Secret Manager bindings)
@@ -73,7 +97,6 @@ jobs:
         run: |
           set -euo pipefail
           JOB_NAME="migrate-job"
-          # create job if it doesn't exist (bind secrets for the job)
           if gcloud run jobs describe "${JOB_NAME}" --region "${{ secrets.GCP_REGION }}" >/dev/null 2>&1; then
             echo "Job '${JOB_NAME}' exists."
           else
@@ -88,7 +111,6 @@ jobs:
               --update-secrets "DB_PASSWORD=DB_PASSWORD:latest","DJANGO_SECRET_KEY=DJANGO_SECRET_KEY:latest"
           fi
 
-          # execute the job and wait
           echo "Executing job '${JOB_NAME}'..."
           gcloud run jobs execute "${JOB_NAME}" --region "${{ secrets.GCP_REGION }}" --wait
 
