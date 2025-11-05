@@ -8,7 +8,7 @@ env:
   PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
   REGION: ${{ secrets.GCP_REGION }}
   SERVICE_NAME: django-backend
-  GCR_HOST: ${{ secrets.GCR_HOST || 'gcr.io' }}
+  GCR_HOST: "gcr.io"
 
 jobs:
   build-and-deploy:
@@ -29,23 +29,22 @@ jobs:
 
       - name: Generate migrations in CI & run tests
         run: |
-          # Generate migration files so they're baked into the image.
           python manage.py makemigrations --noinput
           # optional: run tests (remove || true to fail on test failures)
           python manage.py test || true
 
-      - name: Configure gcloud SDK (authenticate)
+      - name: Authenticate to GCP (for Docker + gcloud)
         uses: google-github-actions/auth@v1
         with:
           credentials_json: '${{ secrets.GCP_SA_KEY }}'
 
-      - name: Configure docker auth for GCR
+      - name: Configure Docker auth for GCR
         run: |
           gcloud auth configure-docker --quiet
 
       - name: Build Docker image
         run: |
-          IMAGE_URI="${{ env.GCR_HOST }}/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }}:${{ github.sha }}"
+          IMAGE_URI="${{ env.GCR_HOST }}/${{ secrets.GCP_PROJECT_ID }}/${{ env.SERVICE_NAME }}:${{ github.sha }}"
           docker build -t "${IMAGE_URI}" .
           echo "IMAGE_URI=${IMAGE_URI}" >> $GITHUB_ENV
 
@@ -55,10 +54,8 @@ jobs:
 
       - name: Deploy to Cloud Run (with Secret Manager bindings)
         env:
-          IMAGE_URI: ${{ env.GCR_HOST }}/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }}:${{ github.sha }}
+          IMAGE_URI: ${{ env.GCR_HOST }}/${{ secrets.GCP_PROJECT_ID }}/${{ env.SERVICE_NAME }}:${{ github.sha }}
         run: |
-          # Deploy service to Cloud Run
-          # Binds Secret Manager secrets DB_PASSWORD and DJANGO_SECRET_KEY to env names in the container.
           gcloud run deploy "${{ env.SERVICE_NAME }}" \
             --image "${IMAGE_URI}" \
             --region "${{ secrets.GCP_REGION }}" \
@@ -66,17 +63,17 @@ jobs:
             --allow-unauthenticated \
             --service-account "${{ secrets.CLOUDRUN_SERVICE_ACCOUNT }}" \
             --add-cloudsql-instances "${{ secrets.CLOUD_SQL_CONNECTION_NAME }}" \
-            --set-env-vars "CLOUD_SQL_CONNECTION_NAME=${{ secrets.CLOUD_SQL_CONNECTION_NAME }},DB_NAME=postgres,DB_USER=postgres,DB_HOST=/cloudsql/${{ secrets.CLOUD_SQL_CONNECTION_NAME }},DB_PORT=5432" \
+            --set-env-vars "DJANGO_SETTINGS_MODULE=config.settings.production,CLOUD_SQL_CONNECTION_NAME=${{ secrets.CLOUD_SQL_CONNECTION_NAME }},DB_NAME=postgres,DB_USER=postgres,DB_HOST=/cloudsql/${{ secrets.CLOUD_SQL_CONNECTION_NAME }},DB_PORT=5432" \
             --update-secrets "DB_PASSWORD=DB_PASSWORD:latest","DJANGO_SECRET_KEY=DJANGO_SECRET_KEY:latest" \
             --quiet
 
       - name: Ensure & run migrate-job (Cloud Run Job)
         env:
-          IMAGE_URI: ${{ env.GCR_HOST }}/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }}:${{ github.sha }}
+          IMAGE_URI: ${{ env.GCR_HOST }}/${{ secrets.GCP_PROJECT_ID }}/${{ env.SERVICE_NAME }}:${{ github.sha }}
         run: |
           set -euo pipefail
           JOB_NAME="migrate-job"
-          # Create job if it doesn't exist (bind secrets to job as well)
+          # create job if it doesn't exist (bind secrets for the job)
           if gcloud run jobs describe "${JOB_NAME}" --region "${{ secrets.GCP_REGION }}" >/dev/null 2>&1; then
             echo "Job '${JOB_NAME}' exists."
           else
@@ -91,7 +88,7 @@ jobs:
               --update-secrets "DB_PASSWORD=DB_PASSWORD:latest","DJANGO_SECRET_KEY=DJANGO_SECRET_KEY:latest"
           fi
 
-          # Execute job and wait for completion
+          # execute the job and wait
           echo "Executing job '${JOB_NAME}'..."
           gcloud run jobs execute "${JOB_NAME}" --region "${{ secrets.GCP_REGION }}" --wait
 
