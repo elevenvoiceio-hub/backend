@@ -87,7 +87,7 @@ jobs:
             --service-account "${{ secrets.CLOUDRUN_SERVICE_ACCOUNT }}" \
             --add-cloudsql-instances "${{ secrets.CLOUD_SQL_CONNECTION_NAME }}" \
             --set-env-vars "DJANGO_SETTINGS_MODULE=config.settings.production,CLOUD_SQL_CONNECTION_NAME=${{ secrets.CLOUD_SQL_CONNECTION_NAME }},DB_NAME=postgres,DB_USER=postgres,DB_HOST=/cloudsql/${{ secrets.CLOUD_SQL_CONNECTION_NAME }},DB_PORT=5432" \
-            --update-secrets "DB_PASSWORD=DB_PASSWORD:latest","DJANGO_SECRET_KEY=DJANGO_SECRET_KEY:latest" \
+            --update-secrets "DB_PASSWORD=DB_PASSWORD:latest" \
             --quiet
 
       - name: Ensure & run migrate-job (Cloud Run Job)
@@ -110,7 +110,7 @@ jobs:
               --command "python" \
               --args "manage.py,migrate,--noinput" \
               --tasks 1 \
-              --update-secrets "DB_PASSWORD=DB_PASSWORD:latest","DJANGO_SECRET_KEY=DJANGO_SECRET_KEY:latest"
+              --update-secrets "DB_PASSWORD=DB_PASSWORD:latest"
           fi
 
           echo "Executing job '${JOB_NAME}'..."
