@@ -1,4 +1,5 @@
-name: CI/CD → Cloud Run
+name: CI/CD → Cloud Run (Artifact Registry + Cloud SQL + Secret Manager)
+
 on:
   push:
     branches: [ main ]
@@ -7,7 +8,6 @@ env:
   PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
   REGION: ${{ secrets.GCP_REGION }}
   SERVICE_NAME: django-backend
-  REGISTRY_HOST: gcr.io  # hard-force GCR (NOT Artifact Registry)
 
 jobs:
   build-and-deploy:
@@ -29,51 +29,59 @@ jobs:
       - name: Generate migrations in CI & run tests
         run: |
           python manage.py makemigrations --noinput
+          # optional: run tests (remove || true to fail on test failures)
           python manage.py test || true
 
-      # 1) Auth to GCP using your CI SA key (from GitHub secret)
-      - name: Authenticate to GCP
+      # Authenticate to GCP using CI service account key
+      - name: Authenticate to GCP (CI service account)
         uses: google-github-actions/auth@v1
         with:
           credentials_json: ${{ secrets.GCP_SA_KEY }}
 
-      # 2) Install gcloud CLI on the runner
+      # Install gcloud SDK and set project (needed for gcloud commands)
       - name: Install gcloud SDK
         uses: google-github-actions/setup-gcloud@v2
         with:
           project_id: ${{ secrets.GCP_PROJECT_ID }}
 
-      # 3) Diagnostics (keep until it works once)
-      - name: Debug gcloud account & config
+      # Verify auth (temporary debug — remove after first successful run)
+      - name: Verify gcloud auth (debug)
         run: |
           echo "Active account: $(gcloud config get-value account)"
           echo "Active project: $(gcloud config get-value project)"
           gcloud auth list
 
-      # 4) Configure Docker to use gcloud credential helper for GCR
-      - name: Configure Docker auth for GCR
+      # Configure docker credential helper for Artifact Registry
+      - name: Configure Docker auth for Artifact Registry
         run: |
-          gcloud auth configure-docker --quiet
+          LOCATION="${{ secrets.ARTIFACT_LOCATION }}" # e.g. us or us-central1
+          gcloud auth configure-docker "${LOCATION}-docker.pkg.dev" --quiet
+          echo "Configured docker credential helper for ${LOCATION}-docker.pkg.dev"
 
-      # 5) Build & push image to GCR (NOT Artifact Registry)
-      - name: Build Docker image
+      # Build image and set IMAGE_URI (Artifact Registry format)
+      - name: Build Docker image (Artifact Registry)
         run: |
-          IMAGE_URI="${{ env.REGISTRY_HOST }}/${{ env.PROJECT_ID }}/${{ env.SERVICE_NAME }}:${{ github.sha }}"
-          echo "IMAGE_URI=${IMAGE_URI}" | tee -a $GITHUB_ENV
+          LOCATION="${{ secrets.ARTIFACT_LOCATION }}"
+          REPO="${{ secrets.ARTIFACT_REPO }}"
+          PROJECT="${{ secrets.GCP_PROJECT_ID }}"
+          IMAGE_URI="${LOCATION}-docker.pkg.dev/${PROJECT}/${REPO}/${{ env.SERVICE_NAME }}:${{ github.sha }}"
+          echo "IMAGE_URI=${IMAGE_URI}" >> $GITHUB_ENV
           docker build -t "${IMAGE_URI}" .
-          docker images
+          docker images --format "table {{.Repository}}:{{.Tag}}\t{{.Size}}"
 
-      - name: Push Docker image
+      - name: Push Docker image (Artifact Registry)
         run: |
-          echo "Pushing ${IMAGE_URI}"
+          echo "Pushing ${IMAGE_URI} ..."
           docker push "${IMAGE_URI}"
 
-      # 6) Deploy to Cloud Run with Secret Manager bindings
-      - name: Deploy to Cloud Run
+      - name: Deploy to Cloud Run (with Secret Manager bindings)
+        env:
+          IMAGE_URI: ${{ env.IMAGE_URI }}
         run: |
+          # Bind Secret Manager secrets DB_PASSWORD and DJANGO_SECRET_KEY to env vars in container
           gcloud run deploy "${{ env.SERVICE_NAME }}" \
             --image "${IMAGE_URI}" \
-            --region "${{ env.REGION }}" \
+            --region "${{ secrets.GCP_REGION }}" \
             --platform managed \
             --allow-unauthenticated \
             --service-account "${{ secrets.CLOUDRUN_SERVICE_ACCOUNT }}" \
@@ -82,27 +90,32 @@ jobs:
             --update-secrets "DB_PASSWORD=DB_PASSWORD:latest","DJANGO_SECRET_KEY=DJANGO_SECRET_KEY:latest" \
             --quiet
 
-      # 7) Create/execute a Cloud Run Job to run migrations
-      - name: Ensure & run migrate-job
+      - name: Ensure & run migrate-job (Cloud Run Job)
+        env:
+          IMAGE_URI: ${{ env.IMAGE_URI }}
         run: |
           set -euo pipefail
           JOB_NAME="migrate-job"
-          if gcloud run jobs describe "${JOB_NAME}" --region "${{ env.REGION }}" >/dev/null 2>&1; then
+          REGION="${{ secrets.GCP_REGION }}"
+          SA="${{ secrets.CLOUDRUN_SERVICE_ACCOUNT }}"
+          # Create job if missing (bind secrets to job as well)
+          if gcloud run jobs describe "${JOB_NAME}" --region "${REGION}" >/dev/null 2>&1; then
             echo "Job '${JOB_NAME}' exists."
           else
             echo "Creating job '${JOB_NAME}'..."
             gcloud run jobs create "${JOB_NAME}" \
               --image "${IMAGE_URI}" \
-              --region "${{ env.REGION }}" \
-              --service-account "${{ secrets.CLOUDRUN_SERVICE_ACCOUNT }}" \
+              --region "${REGION}" \
+              --service-account "${SA}" \
               --command "python" \
               --args "manage.py,migrate,--noinput" \
               --tasks 1 \
               --update-secrets "DB_PASSWORD=DB_PASSWORD:latest","DJANGO_SECRET_KEY=DJANGO_SECRET_KEY:latest"
           fi
+
           echo "Executing job '${JOB_NAME}'..."
-          gcloud run jobs execute "${JOB_NAME}" --region "${{ env.REGION }}" --wait
+          gcloud run jobs execute "${JOB_NAME}" --region "${REGION}" --wait
 
       - name: Output Cloud Run service URL
         run: |
-          gcloud run services describe "${{ env.SERVICE_NAME }}" --region "${{ env.REGION }}" --format="value(status.url)"
+          gcloud run services describe "${{ env.SERVICE_NAME }}" --region "${{ secrets.GCP_REGION }}" --format="value(status.url)"
