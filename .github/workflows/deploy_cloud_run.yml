@@ -1,4 +1,4 @@
-name: CI/CD → Cloud Run (Cloud SQL + Secret Manager)
+name: CI/CD → Cloud Run (Artifact Registry + Cloud SQL, DB password from GitHub Secret)
 
 on:
   push:
@@ -8,13 +8,12 @@ env:
   PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
   REGION: ${{ secrets.GCP_REGION }}
   SERVICE_NAME: django-backend
-  GCR_HOST: "gcr.io"
 
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
+      - name: Checkout
         uses: actions/checkout@v4
 
       - name: Set up Python
@@ -30,32 +29,43 @@ jobs:
       - name: Generate migrations in CI & run tests
         run: |
           python manage.py makemigrations --noinput
-          # optional: run tests (remove || true to fail on test failures)
           python manage.py test || true
 
-      - name: Authenticate to GCP (for Docker + gcloud)
+      - name: Authenticate to GCP (CI service account)
         uses: google-github-actions/auth@v1
         with:
-          credentials_json: '${{ secrets.GCP_SA_KEY }}'
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
 
-      - name: Configure Docker auth for GCR
-        run: |
-          gcloud auth configure-docker --quiet
+      - name: Install gcloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
 
-      - name: Build Docker image
+      - name: Configure Docker for Artifact Registry
         run: |
-          IMAGE_URI="${{ env.GCR_HOST }}/${{ secrets.GCP_PROJECT_ID }}/${{ env.SERVICE_NAME }}:${{ github.sha }}"
-          docker build -t "${IMAGE_URI}" .
+          LOCATION="${{ secrets.ARTIFACT_LOCATION }}"    # e.g. "us" or "us-central1"
+          gcloud auth configure-docker "${LOCATION}-docker.pkg.dev" --quiet
+
+      - name: Build Docker image (Artifact Registry)
+        run: |
+          LOCATION="${{ secrets.ARTIFACT_LOCATION }}"
+          REPO="${{ secrets.ARTIFACT_REPO }}"
+          PROJECT="${{ secrets.GCP_PROJECT_ID }}"
+          IMAGE_URI="${LOCATION}-docker.pkg.dev/${PROJECT}/${REPO}/${{ env.SERVICE_NAME }}:${{ github.sha }}"
           echo "IMAGE_URI=${IMAGE_URI}" >> $GITHUB_ENV
+          docker build -t "${IMAGE_URI}" .
+          docker images --format "table {{.Repository}}:{{.Tag}}\t{{.Size}}"
 
-      - name: Push Docker image
+      - name: Push Docker image (Artifact Registry)
         run: |
           docker push "${IMAGE_URI}"
 
-      - name: Deploy to Cloud Run (with Secret Manager bindings)
+      - name: Deploy to Cloud Run (inject DB password from GitHub secret)
         env:
-          IMAGE_URI: ${{ env.GCR_HOST }}/${{ secrets.GCP_PROJECT_ID }}/${{ env.SERVICE_NAME }}:${{ github.sha }}
+          IMAGE_URI: ${{ env.IMAGE_URI }}
         run: |
+          # The DB password is taken from the GitHub secret 'DB_PASSWORD' and injected
+          # into Cloud Run as an environment variable DB_PASSWORD. No Secret Manager used.
           gcloud run deploy "${{ env.SERVICE_NAME }}" \
             --image "${IMAGE_URI}" \
             --region "${{ secrets.GCP_REGION }}" \
@@ -63,35 +73,34 @@ jobs:
             --allow-unauthenticated \
             --service-account "${{ secrets.CLOUDRUN_SERVICE_ACCOUNT }}" \
             --add-cloudsql-instances "${{ secrets.CLOUD_SQL_CONNECTION_NAME }}" \
-            --set-env-vars "DJANGO_SETTINGS_MODULE=config.settings.production,CLOUD_SQL_CONNECTION_NAME=${{ secrets.CLOUD_SQL_CONNECTION_NAME }},DB_NAME=postgres,DB_USER=postgres,DB_HOST=/cloudsql/${{ secrets.CLOUD_SQL_CONNECTION_NAME }},DB_PORT=5432" \
-            --update-secrets "DB_PASSWORD=DB_PASSWORD:latest","DJANGO_SECRET_KEY=DJANGO_SECRET_KEY:latest" \
+            --set-env-vars "DJANGO_SETTINGS_MODULE=config.settings.production,CLOUD_SQL_CONNECTION_NAME=${{ secrets.CLOUD_SQL_CONNECTION_NAME }},DB_NAME=postgres,DB_USER=postgres,DB_PASSWORD=${{ secrets.DB_PASSWORD }},DB_HOST=/cloudsql/${{ secrets.CLOUD_SQL_CONNECTION_NAME }},DB_PORT=5432" \
             --quiet
 
-      - name: Ensure & run migrate-job (Cloud Run Job)
+      - name: Ensure & run migrate-job (Cloud Run Job) — uses same envs
         env:
-          IMAGE_URI: ${{ env.GCR_HOST }}/${{ secrets.GCP_PROJECT_ID }}/${{ env.SERVICE_NAME }}:${{ github.sha }}
+          IMAGE_URI: ${{ env.IMAGE_URI }}
         run: |
           set -euo pipefail
           JOB_NAME="migrate-job"
-          # create job if it doesn't exist (bind secrets for the job)
-          if gcloud run jobs describe "${JOB_NAME}" --region "${{ secrets.GCP_REGION }}" >/dev/null 2>&1; then
-            echo "Job '${JOB_NAME}' exists."
-          else
-            echo "Creating job '${JOB_NAME}'..."
-            gcloud run jobs create "${JOB_NAME}" \
-              --image "${IMAGE_URI}" \
-              --region "${{ secrets.GCP_REGION }}" \
-              --service-account "${{ secrets.CLOUDRUN_SERVICE_ACCOUNT }}" \
-              --command "python" \
-              --args "manage.py,migrate,--noinput" \
-              --tasks 1 \
-              --update-secrets "DB_PASSWORD=DB_PASSWORD:latest","DJANGO_SECRET_KEY=DJANGO_SECRET_KEY:latest"
+          REGION="${{ secrets.GCP_REGION }}"
+          SA="${{ secrets.CLOUDRUN_SERVICE_ACCOUNT }}"
+          IMAGE="${IMAGE_URI}"
+
+          # If job exists, delete & recreate to ensure it picks up updated envs (optional)
+          if gcloud run jobs describe "${JOB_NAME}" --region "${REGION}" >/dev/null 2>&1; then
+            echo "Job '${JOB_NAME}' exists — replacing it to update envs..."
+            gcloud run jobs delete "${JOB_NAME}" --region "${REGION}" --quiet || true
           fi
 
-          # execute the job and wait
-          echo "Executing job '${JOB_NAME}'..."
-          gcloud run jobs execute "${JOB_NAME}" --region "${{ secrets.GCP_REGION }}" --wait
+          echo "Creating job '${JOB_NAME}'..."
+          # create job with DB envs passed explicitly (no Secret Manager)
+          gcloud run jobs create "${JOB_NAME}" \
+            --image "${IMAGE}" \
+            --region "${REGION}" \
+            --service-account "${SA}" \
+            --command "python" \
+            --args "manage.py,migrate,--noinput" \
+            --tasks 1 \
+            --set-env-vars "DJANGO_SETTINGS_MODULE=config.settings.production,CLOUD_SQL_CONNECTION_NAME=${{ secrets.CLOUD_SQL_CONNECTION_NAME }},DB_NAME=postgres,DB_USER=postgres,DB_PASSWORD=${{ secrets.DB_PASSWORD }},DB_HOST=/cloudsql/${{ secrets.CLOUD_SQL_CONNECTION_NAME }},DB_PORT=5432"
 
-      - name: Output Cloud Run service URL
-        run: |
-          gcloud run services describe "${{ env.SERVICE_NAME }}" --region "${{ secrets.GCP_REGION }}" --format="value(status.url)"
+          echo "Executing job '${JOB_NAME}'..."
