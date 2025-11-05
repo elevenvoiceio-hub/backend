@@ -4,8 +4,7 @@ FROM python:3.11-slim AS builder
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=off \
-    PIP_DISABLE_PIP_VERSION_CHECK=on \
-    POETRY_VIRTUALENVS_CREATE=false
+    PIP_DISABLE_PIP_VERSION_CHECK=on
 
 WORKDIR /app
 
@@ -18,7 +17,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 COPY requirements.txt /app/requirements.txt
 
 # Install wheels and dependencies into system python
-RUN pip install --upgrade pip setuptools wheel \
+RUN python -m pip install --upgrade pip setuptools wheel \
   && pip install -r /app/requirements.txt
 
 # ---------- runtime stage ----------
@@ -32,19 +31,23 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-# Install runtime system deps (lighter than builder)
+# Runtime system deps (lighter than builder)
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    libpq5 ca-certificates \
+    libpq5 ca-certificates bash \
   && rm -rf /var/lib/apt/lists/*
 
-# Copy installed site-packages from builder
+# Copy installed site-packages & binaries from builder
 COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
 COPY --from=builder /usr/local/bin /usr/local/bin
 
 # Copy project files
 COPY . /app
 
-# Create non-root user and set permissions
+# Ensure entrypoint exists and is executable (do this as root)
+# This avoids permission-denied at runtime.
+RUN chmod +x /app/entrypoint.sh || true
+
+# Create non-root user, adjust ownership and ensure /app is writable by user
 RUN useradd --create-home appuser \
   && chown -R appuser:appuser /app
 
@@ -52,13 +55,5 @@ USER appuser
 
 EXPOSE 8080
 
-# Add an entrypoint script (see entrypoint.sh below)
-ENTRYPOINT ["/app/entrypoint.sh"]
-
-# Default command: serve with gunicorn
-CMD ["gunicorn", "VoiceAsService.wsgi:application", \
-     "--bind", "0.0.0.0:8080", \
-     "--workers", "2", \
-     "--threads", "2", \
-     "--log-level", "info", \
-     "--timeout", "120"]
+# Use the entrypoint script to start the app. It will exec the gunicorn server if no args provided.
+ENTRYPOINT ["/bin/bash", "/app/entrypoint.sh"]
