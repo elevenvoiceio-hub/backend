@@ -242,7 +242,10 @@ SIMPLE_JWT = {
 # AZURE_REGION = config("AZURE_REGION")
 # ELEVEN_LABS_KEY = config("ELEVEN_LABS_KEY")
 
-CORS_ALLOW_ALL_ORIGINS = True
+# CORS configuration
+# Prefer explicit origins via the CORS_ALLOWED_ORIGINS env var in production.
+# If CORS_ALLOWED_ORIGINS is not set, fall back to allowing all origins.
+cors_allowed_origins_env = os.environ.get("CORS_ALLOWED_ORIGINS")
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOW_HEADERS = [
     "accept",
@@ -255,6 +258,27 @@ CORS_ALLOW_HEADERS = [
     "x-csrftoken",
     "x-requested-with",
 ]
+
+if cors_allowed_origins_env:
+    # Provide a comma-separated list in the Cloud Run service env (e.g.
+    # "https://example.com,https://staging.example.com")
+    CORS_ALLOWED_ORIGINS = [
+        o.strip() for o in cors_allowed_origins_env.split(",") if o.strip()
+    ]
+else:
+    CORS_ALLOW_ALL_ORIGINS = True
+
+# CSRF trusted origins - useful when your frontend is served over HTTPS (Cloud Run)
+# Set CSRF_TRUSTED_ORIGINS as a comma-separated env var, including scheme, e.g.
+# "https://example.com,https://localhost:3000"
+csrf_trusted_env = os.environ.get("CSRF_TRUSTED_ORIGINS")
+if csrf_trusted_env:
+    CSRF_TRUSTED_ORIGINS = [o.strip() for o in csrf_trusted_env.split(",") if o.strip()]
+
+# When running behind Cloud Run (or many proxies), Django needs to know the
+# original request scheme so it can build secure URLs and handle CSRF/cookies
+# correctly. Cloud Run sets X-Forwarded-Proto to 'https' for HTTPS requests.
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 
 EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
 EMAIL_HOST = "smtp.gmail.com"  # or your SMTP server
