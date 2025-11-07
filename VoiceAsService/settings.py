@@ -14,7 +14,6 @@ from datetime import timedelta
 import os
 import dj_database_url
 from pathlib import Path
-from decouple import config
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -24,7 +23,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = config(
+SECRET_KEY = os.getenv(
     "SECRET_KEY",
     default="django-insecure-my(m)vqv-^(%smbz7@*e3#an7jd#l5lx!da=3&!53v$*asul4%",
 )
@@ -102,19 +101,17 @@ WSGI_APPLICATION = "VoiceAsService.wsgi.application"
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.environ.get('DB_NAME'),        # Your database name
-        'USER': os.environ.get('DB_USER'),        # Your database user
-        'PASSWORD': os.environ.get('DB_PASS'),  # Your database password
-        
+    "default": {
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": os.environ.get("DB_NAME"),  # Your database name
+        "USER": os.environ.get("DB_USER"),  # Your database user
+        "PASSWORD": os.environ.get("DB_PASS"),  # Your database password
         # This is the key part:
-        # GCP services (Cloud Run, App Engine) automatically create this 
+        # GCP services (Cloud Run, App Engine) automatically create this
         # Unix socket at /cloudsql/<INSTANCE_CONNECTION_NAME>
-        'HOST': f"/cloudsql/{os.environ.get('INSTANCE_CONNECTION_NAME')}",
-        
+        "HOST": f"/cloudsql/{os.environ.get('INSTANCE_CONNECTION_NAME')}",
         # Set PORT to empty string when using a Unix socket
-        'PORT': '', 
+        "PORT": "",
     }
 }
 # DATABASES = {
