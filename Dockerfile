@@ -25,7 +25,7 @@ FROM python:3.11-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    DJANGO_SETTINGS_MODULE=config.settings.production \
+  DJANGO_SETTINGS_MODULE=VoiceAsService.settings \
     # default port Cloud Run expects 8080 (you can override at runtime)
     PORT=8080
 
