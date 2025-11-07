@@ -37,6 +37,7 @@ ALLOWED_HOSTS = [
     "0.0.0.0",
     "localhost",
     ".onrender.com",  # Allow all subdomains on render.com
+    ".asia-south1.run.app",
 ]
 
 
