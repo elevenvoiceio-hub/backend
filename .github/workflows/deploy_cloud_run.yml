@@ -1,4 +1,4 @@
-name: CI/CD → Cloud Run (Artifact Registry + Cloud SQL, DB password from GitHub Secret)
+name: CI/CD → Cloud Run 
 
 on:
   push:
@@ -75,36 +75,3 @@ jobs:
             --add-cloudsql-instances "${{ secrets.CLOUD_SQL_CONNECTION_NAME }}" \
             --set-env-vars "CLOUD_SQL_CONNECTION_NAME=${{ secrets.CLOUD_SQL_CONNECTION_NAME }},INSTANCE_CONNECTION_NAME=${{ secrets.CLOUD_SQL_CONNECTION_NAME }},DB_NAME=postgres,DB_USER=postgres,DB_PASSWORD=${{ secrets.DB_PASSWORD }},DB_HOST=/cloudsql/${{ secrets.CLOUD_SQL_CONNECTION_NAME }},DB_PORT=5432" \
             --quiet
-
-      - name: Ensure & run migrate-job (Cloud Run Job) — uses same envs
-        env:
-          IMAGE_URI: ${{ env.IMAGE_URI }}
-        run: |
-          set -euo pipefail
-          JOB_NAME="migrate-job"
-          REGION="${{ secrets.GCP_REGION }}"
-          SA="${{ secrets.CLOUDRUN_SERVICE_ACCOUNT }}"
-          IMAGE="${IMAGE_URI}"
-
-          # If job exists, delete & recreate to ensure it picks up updated envs (optional)
-          if gcloud run jobs describe "${JOB_NAME}" --region "${REGION}" >/dev/null 2>&1; then
-            echo "Job '${JOB_NAME}' exists — replacing it to update envs..."
-            gcloud run jobs delete "${JOB_NAME}" --region "${REGION}" --quiet || true
-          fi
-
-          echo "Creating job '${JOB_NAME}'..."
-          # create job with DB envs passed explicitly (no Secret Manager)
-          gcloud run jobs create "${JOB_NAME}" \
-            --image "${IMAGE}" \
-            --region "${REGION}" \
-            --service-account "${SA}" \
-            --command "python" \
-            --args "manage.py,migrate,--noinput" \
-            --tasks 1 \
-            --add-cloudsql-instances "${{ secrets.CLOUD_SQL_CONNECTION_NAME }}" \
-            --set-env-vars "INSTANCE_CONNECTION_NAME=${{ secrets.CLOUD_SQL_CONNECTION_NAME }},DB_NAME=postgres,DB_USER=postgres,DB_PASSWORD=${{ secrets.DB_PASSWORD }},DB_PORT=5432"
-
-          echo "Executing job '${JOB_NAME}'..."
-          gcloud run jobs execute "${JOB_NAME}" --region "${REGION}" --wait
-
-          echo "Executing job '${JOB_NAME}'..."
