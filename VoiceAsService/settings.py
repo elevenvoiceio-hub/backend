@@ -100,18 +100,29 @@ WSGI_APPLICATION = "VoiceAsService.wsgi.application"
 # Database
 # https://docs.djangoproject.com/en/4.2/ref/settings/#databases
 
+# Database configuration.
+# Accept either INSTANCE_CONNECTION_NAME or CLOUD_SQL_CONNECTION_NAME (set by CI/deploy).
+INSTANCE_CONNECTION_NAME = os.environ.get("INSTANCE_CONNECTION_NAME") or os.environ.get(
+    "CLOUD_SQL_CONNECTION_NAME"
+)
+
+# Accept either DB_PASS or DB_PASSWORD from env (workflow used DB_PASSWORD).
+DB_PASSWORD = os.environ.get("DB_PASS") or os.environ.get("DB_PASSWORD")
+
+# Allow explicit DB_HOST override, otherwise use the Cloud SQL unix socket when available.
+DB_HOST = os.environ.get("DB_HOST") or (
+    f"/cloudsql/{INSTANCE_CONNECTION_NAME}" if INSTANCE_CONNECTION_NAME else ""
+)
+
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
-        "NAME": os.environ.get("DB_NAME"),  # Your database name
-        "USER": os.environ.get("DB_USER"),  # Your database user
-        "PASSWORD": os.environ.get("DB_PASS"),  # Your database password
-        # This is the key part:
-        # GCP services (Cloud Run, App Engine) automatically create this
-        # Unix socket at /cloudsql/<INSTANCE_CONNECTION_NAME>
-        "HOST": f"/cloudsql/{os.environ.get('INSTANCE_CONNECTION_NAME')}",
+        "NAME": os.environ.get("DB_NAME"),
+        "USER": os.environ.get("DB_USER"),
+        "PASSWORD": DB_PASSWORD,
+        "HOST": DB_HOST,
         # Set PORT to empty string when using a Unix socket
-        "PORT": "",
+        "PORT": os.environ.get("DB_PORT", ""),
     }
 }
 # DATABASES = {
