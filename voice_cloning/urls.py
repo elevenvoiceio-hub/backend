@@ -13,7 +13,7 @@ urlpatterns = [
     ),
     path("clones/", VoiceClonesListAPIView.as_view(), name="voiceClones-list"),
     path(
-        "clones/delete/<str:clone_id>/",
+        "<str:clone_id>/",
         VoiceClonesDeleteAPIView.as_view(),
         name="voiceclone-delete-custom",
     ),
