@@ -71,7 +71,7 @@ def increase_model_credits(credits_to_add, model):
         bool: True if the credits were successfully increased, False otherwise.
     """
     if model:
-        model.credits += credits_to_add
+        model.credits_used += credits_to_add
         model.save()
         return True
     return False
