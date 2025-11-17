@@ -106,7 +106,7 @@ class AssignSubscription(APIView):
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        duration = timedelta(days=plan.duration_days)
+        duration = timedelta(days=request.data.get("duration_days"))
         end_date = timezone.now() + duration
         token_credits = plan.character_limit
         voice_credits = plan.voice_limit
@@ -179,7 +179,7 @@ class SubscribeUser(APIView):
                     status=status.HTTP_404_NOT_FOUND,
                 )
 
-            duration = timedelta(days=plan.duration_days)
+            duration = timedelta(days=request.data.get("duration_days"))
             end_date = timezone.now() + duration
             token_credits = plan.character_limit
             voice_credits = plan.voice_limit
