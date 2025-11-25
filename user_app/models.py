@@ -39,9 +39,9 @@ class User(AbstractBaseUser, PermissionsMixin):
     is_active_user = models.BooleanField(default=False)
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
-    # email_verification_code = models.CharField(max_length=10, blank=True, null=True)
-    # reset_password_code = models.CharField(max_length=10, blank=True, null=True)
-    # is_email_verified = models.BooleanField(default=False)
+    email_verification_code = models.CharField(max_length=10, blank=True, null=True)
+    reset_password_code = models.CharField(max_length=10, blank=True, null=True)
+    is_email_verified = models.BooleanField(default=True)
 
     objects = UserManager()
 
