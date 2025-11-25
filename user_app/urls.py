@@ -45,15 +45,15 @@ urlpatterns = [
         RemoveFavoriteVoice.as_view(),
         name="remove-favorite-voice",
     ),
-    path("verify-email/", VerifyEmailAPIView.as_view(), name="verify-email"),
-    path("forgot-password/", ForgotPasswordAPIView.as_view(), name="forgot-password"),
-    path("reset-password/", ResetPasswordAPIView.as_view(), name="reset-password"),
+    # path("verify-email/", VerifyEmailAPIView.as_view(), name="verify-email"),
+    # path("forgot-password/", ForgotPasswordAPIView.as_view(), name="forgot-password"),
+    # path("reset-password/", ResetPasswordAPIView.as_view(), name="reset-password"),
     path("me/", GetLoggedInUserView.as_view(), name="get-logged-in-user"),
-    path(
-        "resend-password-otp/",
-        ResendPasswordOTPAPIView.as_view(),
-        name="resend-password-otp",
-    ),
+    # path(
+    #     "resend-password-otp/",
+    #     ResendPasswordOTPAPIView.as_view(),
+    #     name="resend-password-otp",
+    # ),
     path(
         "update-role/<int:user_id>/",
         UpdateUserRoleView.as_view(),
