@@ -75,20 +75,19 @@ class RegisterUser(APIView):
         try:
             serializer.is_valid(raise_exception=True)
             user = serializer.save()
-
             # Generate a random 6-digit code
-            code = "".join(random.choices(string.digits, k=6))
-            user.email_verification_code = code
-            user.is_email_verified = False
-            user.save(update_fields=["email_verification_code", "is_email_verified"])
+            # code = "".join(random.choices(string.digits, k=6))
+            # user.email_verification_code = code
+            # user.is_email_verified = False
+            # user.save(update_fields=["email_verification_code", "is_email_verified"])
 
             # Prepare email content
-            subject = "Verify your email"
-            message = f"Your verification code is: {code}"
-            recipient_list = [user.email]
+            # subject = "Verify your email"
+            # message = f"Your verification code is: {code}"
+            # recipient_list = [user.email]
 
-            # Send the email
-            send_custom_email(subject, message, recipient_list)
+            # # Send the email
+            # send_custom_email(subject, message, recipient_list)
 
             return Response(
                 {
@@ -115,13 +114,13 @@ class LoginUser(APIView):
             serializer.is_valid(raise_exception=True)
             user = serializer.validated_data
 
-            if not user.is_email_verified:
-                return Response(
-                    {
-                        "detail": "Email is not verified. Please verify your email before logging in."
-                    },
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
+            # if not user.is_email_verified:
+            #     return Response(
+            #         {
+            #             "detail": "Email is not verified. Please verify your email before logging in."
+            #         },
+            #         status=status.HTTP_400_BAD_REQUEST,
+            #     )
 
             user.is_active_user = True
             user.save(update_fields=["is_active_user"])
@@ -543,80 +542,80 @@ class RemoveFavoriteVoice(APIView):
             )
 
 
-class VerifyEmailAPIView(APIView):
-    def post(self, request):
-        email = request.data.get("email")
-        code = request.data.get("code")
-        try:
-            user = User.objects.get(email=email, email_verification_code=code)
-            user.is_email_verified = True
-            user.email_verification_code = ""
-            user.save(update_fields=["is_email_verified", "email_verification_code"])
-            return Response(
-                {"message": "Email verified successfully."}, status=status.HTTP_200_OK
-            )
-        except User.DoesNotExist:
-            return Response(
-                {"error": "Invalid code or email."}, status=status.HTTP_400_BAD_REQUEST
-            )
+# class VerifyEmailAPIView(APIView):
+#     def post(self, request):
+#         email = request.data.get("email")
+#         code = request.data.get("code")
+#         try:
+#             user = User.objects.get(email=email, email_verification_code=code)
+#             user.is_email_verified = True
+#             user.email_verification_code = ""
+#             user.save(update_fields=["is_email_verified", "email_verification_code"])
+#             return Response(
+#                 {"message": "Email verified successfully."}, status=status.HTTP_200_OK
+#             )
+#         except User.DoesNotExist:
+#             return Response(
+#                 {"error": "Invalid code or email."}, status=status.HTTP_400_BAD_REQUEST
+#             )
 
 
-class ResetPasswordAPIView(APIView):
-    def post(self, request):
-        email = request.data.get("email")
-        code = request.data.get("code")
-        new_password = request.data.get("new_password")
-        if not all([email, code, new_password]):
-            return Response(
-                {"error": "Email, code, and new_password are required."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-        try:
-            user = User.objects.get(email=email, reset_password_code=code)
-            user.set_password(new_password)
-            user.reset_password_code = ""
-            user.save(update_fields=["password", "reset_password_code"])
-            return Response(
-                {"message": "Password updated successfully."}, status=status.HTTP_200_OK
-            )
-        except User.DoesNotExist:
-            return Response(
-                {"error": "Invalid code or email."}, status=status.HTTP_400_BAD_REQUEST
-            )
-        except Exception as e:
-            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+# class ResetPasswordAPIView(APIView):
+#     def post(self, request):
+#         email = request.data.get("email")
+#         code = request.data.get("code")
+#         new_password = request.data.get("new_password")
+#         if not all([email, code, new_password]):
+#             return Response(
+#                 {"error": "Email, code, and new_password are required."},
+#                 status=status.HTTP_400_BAD_REQUEST,
+#             )
+#         try:
+#             user = User.objects.get(email=email, reset_password_code=code)
+#             user.set_password(new_password)
+#             user.reset_password_code = ""
+#             user.save(update_fields=["password", "reset_password_code"])
+#             return Response(
+#                 {"message": "Password updated successfully."}, status=status.HTTP_200_OK
+#             )
+#         except User.DoesNotExist:
+#             return Response(
+#                 {"error": "Invalid code or email."}, status=status.HTTP_400_BAD_REQUEST
+#             )
+#         except Exception as e:
+#             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
-class ForgotPasswordAPIView(APIView):
-    def post(self, request):
-        email = request.data.get("email")
-        if not email:
-            return Response(
-                {"error": "Email is required."}, status=status.HTTP_400_BAD_REQUEST
-            )
-        try:
-            user = User.objects.get(email=email)
-            # Generate a random 6-digit code
-            code = "".join(random.choices(string.digits, k=6))
-            user.reset_password_code = code
-            user.save(update_fields=["reset_password_code"])
+# class ForgotPasswordAPIView(APIView):
+#     def post(self, request):
+#         email = request.data.get("email")
+#         if not email:
+#             return Response(
+#                 {"error": "Email is required."}, status=status.HTTP_400_BAD_REQUEST
+#             )
+#         try:
+#             user = User.objects.get(email=email)
+#             # Generate a random 6-digit code
+#             code = "".join(random.choices(string.digits, k=6))
+#             user.reset_password_code = code
+#             user.save(update_fields=["reset_password_code"])
 
-            subject = "Password Reset Request"
-            message = f"Your password reset code is: {code}"
-            recipient_list = [user.email]
-            send_custom_email(subject, message, recipient_list)
+#             subject = "Password Reset Request"
+#             message = f"Your password reset code is: {code}"
+#             recipient_list = [user.email]
+#             send_custom_email(subject, message, recipient_list)
 
-            return Response(
-                {"message": "Password reset code sent to your email."},
-                status=status.HTTP_200_OK,
-            )
-        except User.DoesNotExist:
-            return Response(
-                {"error": "User with this email does not exist."},
-                status=status.HTTP_404_NOT_FOUND,
-            )
-        except Exception as e:
-            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+#             return Response(
+#                 {"message": "Password reset code sent to your email."},
+#                 status=status.HTTP_200_OK,
+#             )
+#         except User.DoesNotExist:
+#             return Response(
+#                 {"error": "User with this email does not exist."},
+#                 status=status.HTTP_404_NOT_FOUND,
+#             )
+#         except Exception as e:
+#             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
 
 
 class GetLoggedInUserView(APIView):
@@ -627,33 +626,33 @@ class GetLoggedInUserView(APIView):
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
-class ResendPasswordOTPAPIView(APIView):
-    def post(self, request):
-        email = request.data.get("email")
-        if not email:
-            return Response(
-                {"error": "Email is required."}, status=status.HTTP_400_BAD_REQUEST
-            )
-        try:
-            user = User.objects.get(email=email)
-            # Generate a new random 6-digit code
-            code = "".join(random.choices(string.digits, k=6))
-            user.reset_password_code = code
-            user.save(update_fields=["reset_password_code"])
+# class ResendPasswordOTPAPIView(APIView):
+#     def post(self, request):
+#         email = request.data.get("email")
+#         if not email:
+#             return Response(
+#                 {"error": "Email is required."}, status=status.HTTP_400_BAD_REQUEST
+#             )
+#         try:
+#             user = User.objects.get(email=email)
+#             # Generate a new random 6-digit code
+#             code = "".join(random.choices(string.digits, k=6))
+#             user.reset_password_code = code
+#             user.save(update_fields=["reset_password_code"])
 
-            subject = "Password Reset Code Resend"
-            message = f"Your password reset code is: {code}"
-            recipient_list = [user.email]
-            send_custom_email(subject, message, recipient_list)
+#             subject = "Password Reset Code Resend"
+#             message = f"Your password reset code is: {code}"
+#             recipient_list = [user.email]
+#             send_custom_email(subject, message, recipient_list)
 
-            return Response(
-                {"message": "Password reset code resent to your email."},
-                status=status.HTTP_200_OK,
-            )
-        except User.DoesNotExist:
-            return Response(
-                {"error": "User with this email does not exist."},
-                status=status.HTTP_404_NOT_FOUND,
-            )
-        except Exception as e:
-            return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
+#             return Response(
+#                 {"message": "Password reset code resent to your email."},
+#                 status=status.HTTP_200_OK,
+#             )
+#         except User.DoesNotExist:
+#             return Response(
+#                 {"error": "User with this email does not exist."},
+#                 status=status.HTTP_404_NOT_FOUND,
+#             )
+#         except Exception as e:
+#             return Response({"error": str(e)}, status=status.HTTP_400_BAD_REQUEST)
