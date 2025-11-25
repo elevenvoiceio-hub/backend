@@ -351,6 +351,9 @@ class VoiceClonesListAPIView(APIView):
                 provider = getattr(obj.voice_cloning_model, "provider", None)
             item["provider"] = provider
         return Response(data)
+    
+class VoiceClonesDeleteAPIView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
 
     def delete(self, request, clone_id, *args, **kwargs):
 
