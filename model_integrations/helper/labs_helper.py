@@ -93,6 +93,73 @@ def get_labs_voices(
         # Get response data - now it's a direct list
         voices_list = response.json()
 
+        # Filter to only return English and Indian languages
+        # Accept both language codes (eg. 'hi', 'en', 'ta') and locales (eg. 'hi-IN', 'en-IN')
+        # Also accept language names (eg. 'Hindi', 'Tamil') if provided.
+        indian_codes = {
+            "hi",
+            "bn",
+            "ta",
+            "te",
+            "kn",
+            "ml",
+            "mr",
+            "gu",
+            "pa",
+            "ur",
+            "or",
+            "as",
+        }
+
+        def is_indian_or_english(voice_obj: dict) -> bool:
+            # Check explicit language code field
+            lang = (voice_obj.get("language") or "").strip().lower()
+            if lang:
+                # language may be a code like 'hi' or a name like 'Hindi'
+                if lang == "en" or lang.startswith("en-") or lang == "english":
+                    return True
+                if lang in indian_codes:
+                    return True
+                # language as full name
+                name = lang
+                for indian_name in [
+                    "hindi",
+                    "bengali",
+                    "tamil",
+                    "telugu",
+                    "kannada",
+                    "malayalam",
+                    "marathi",
+                    "gujarati",
+                    "punjabi",
+                    "urdu",
+                    "oriya",
+                    "odia",
+                    "assamese",
+                ]:
+                    if indian_name in name:
+                        return True
+
+            # Check locale like 'hi-IN' or 'en-US'
+            locale = (voice_obj.get("locale") or "").strip().lower()
+            if locale:
+                prefix = locale.split("-")[0]
+                if prefix == "en" or prefix in indian_codes:
+                    return True
+
+            # Check verified languages entries if present
+            for v in voice_obj.get("verified_languages", []) or []:
+                vl = (v.get("language") or v.get("locale") or "").strip().lower()
+                if not vl:
+                    continue
+                vl_prefix = vl.split("-")[0]
+                if vl_prefix == "en" or vl_prefix in indian_codes:
+                    return True
+
+            return False
+
+        voices_list = [v for v in voices_list if is_indian_or_english(v)]
+
         # Format the voices to match our Voice model structure
         formatted_voices = []
         for voice in voices_list:
