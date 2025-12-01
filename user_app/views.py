@@ -290,7 +290,9 @@ class GetAllUsers(APIView):
                 data = serializer.data
 
                 # Check subscription status and tokens
-                subscription = UserSubscription.objects.filter(user=user).first()
+                subscription = UserSubscription.objects.filter(
+                    user=user, is_active=True
+                ).first()
                 if subscription:
                     data["is_subscribed"] = True
                     data["character_limit"] = getattr(
