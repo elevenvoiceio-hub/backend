@@ -153,8 +153,15 @@ class LabsTextToSpeechAPIView(APIView):
                 {"error": "User does not have enough character credits."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
-
-        increase_model_credits(len(request.data.get("input", "")), config)
+        token_multiplier = request.data.get("token_multiplier", 1.0)
+        if (
+            token_multiplier
+            and isinstance(token_multiplier, float)
+            and token_multiplier > 0
+        ):
+            increase_model_credits(
+                len(request.data.get("input", "")) * token_multiplier, config
+            )
         # Build the payload
         payload = {
             "input": request.data["input"],

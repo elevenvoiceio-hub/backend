@@ -25,7 +25,9 @@ def populate_elevenlabs_voices_table(api_key: str):
     voices = data.get("voices", [])
 
     # Get or create the Configuration for ElevenLabs
-    config, _ = Configuration.objects.get_or_create(provider="elevenlabs")
+    config = Configuration.objects.get(provider="elevenlabs")
+    if not config:
+        raise ValueError("ElevenLabs configuration not found in the database.")
 
     for voice in voices:
         voicename = voice.get("name", "")
@@ -36,7 +38,7 @@ def populate_elevenlabs_voices_table(api_key: str):
         sample_url = voice.get("preview_url", "")
         country = voice.get("labels", {}).get("accent", "")
         language_code = voice.get("labels", {}).get("language", "")
-        language = GCP_LANGUAGE_MAP.get(language_code.lower(), None)
+        language = LANGUAGE_MAP.get(language_code.lower(), None)
         # If styles are present in labels, join them
         styles = voice.get("labels", {}).get("style", [])
         style_list = ",".join(styles) if isinstance(styles, list) else str(styles)
@@ -89,7 +91,7 @@ def elevenlabs_tts(
     user,
     text: str,
     voice_id: str,
-    api_key: str ,
+    api_key: str,
     model_id: str = "eleven_multilingual_v2",
     output_format: str = "mp3_44100_128",
 ) -> Tuple[str, str]:

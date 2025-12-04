@@ -165,7 +165,13 @@ class ElevenLabsTTSView(APIView):
                     {"error": "ElevenLabs TTS configuration not found."},
                     status=status.HTTP_404_NOT_FOUND,
                 )
-            increase_model_credits(len(text), config.first())
+            token_multiplier = request.data.get("token_multiplier", 1.0)
+            if (
+                token_multiplier
+                and isinstance(token_multiplier, float)
+                and token_multiplier > 0
+            ):
+                increase_model_credits(len(text) * token_multiplier, config.first())
             api_key = config.first().api_key
             if not api_key:
                 return Response(
@@ -382,7 +388,13 @@ class LemonFoxTTSAPIView(APIView):
                 {"error": "LemonFox TTS configuration not found."},
                 status=status.HTTP_404_NOT_FOUND,
             )
-        increase_model_credits(len(text), config)
+        token_multiplier = request.data.get("token_multiplier", 1.0)
+        if (
+            token_multiplier
+            and isinstance(token_multiplier, float)
+            and token_multiplier > 0
+        ):
+            increase_model_credits(len(text) * token_multiplier, config.first())
         api_key = config.api_key
         if not api_key:
             return Response(
@@ -439,7 +451,13 @@ class SpeechifyTTSAPIView(APIView):
                 {"error": "Speechify TTS configuration not found."},
                 status=status.HTTP_404_NOT_FOUND,
             )
-        increase_model_credits(len(text), config)
+        token_multiplier = request.data.get("token_multiplier", 1.0)
+        if (
+            token_multiplier
+            and isinstance(token_multiplier, float)
+            and token_multiplier > 0
+        ):
+            increase_model_credits(len(text) * token_multiplier, config)
         token = config.api_key
         if not token:
             return Response(
