@@ -6,7 +6,11 @@ from rest_framework.views import APIView
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 from model_config_app.models import Configuration
-from model_integrations.helper.helper import check_user_subscription, reduce_character_credits
+from model_integrations.helper.helper import (
+    check_user_subscription,
+    increase_model_credits,
+    reduce_character_credits,
+)
 from model_integrations.helper.labs_helper import get_labs_voices
 
 
@@ -138,9 +142,26 @@ class LabsTextToSpeechAPIView(APIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
         if not check_user_subscription(request.user):
-            return Response({"error":"User does not have an active subscription."},status=status.HTTP_400_BAD_REQUEST)
-        if not reduce_character_credits(request.user, len(request.data.get("input",""))):
-            return Response({"error":"User does not have enough character credits."},status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {"error": "User does not have an active subscription."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if not reduce_character_credits(
+            request.user, len(request.data.get("input", ""))
+        ):
+            return Response(
+                {"error": "User does not have enough character credits."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        token_multiplier = request.data.get("token_multiplier", 1.0)
+        if (
+            token_multiplier
+            and isinstance(token_multiplier, float)
+            and token_multiplier > 0
+        ):
+            increase_model_credits(
+                len(request.data.get("input", "")) * token_multiplier, config
+            )
         # Build the payload
         payload = {
             "input": request.data["input"],

@@ -16,6 +16,7 @@ class SubscriptionPlanSerializer(serializers.ModelSerializer):
             "price",
             "duration_days",
             "is_popular",
+            "is_cloaning_available",
             "character_limit",
             "voice_limit",
             "default_character_limit",
