@@ -359,8 +359,8 @@ class VoiceClonesDeleteAPIView(APIView):
     def get_object(self, pk):
         return get_object_or_404(VoiceClones, pk=pk)
 
-    def get(self, request, pk):
-        voice = self.get_object(pk)
+    def get(self, request, cloned_id, *args, **kwargs):
+        voice = self.get_object(cloned_id)
         serializer = VoiceClonesSerializer(voice)
         return Response(serializer.data)
 
