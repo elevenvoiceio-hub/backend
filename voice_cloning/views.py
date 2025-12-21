@@ -1,3 +1,4 @@
+from django.shortcuts import get_object_or_404
 from elevenlabs import ElevenLabs
 from rest_framework import permissions, status
 from rest_framework.response import Response
@@ -354,6 +355,14 @@ class VoiceClonesListAPIView(APIView):
     
 class VoiceClonesDeleteAPIView(APIView):
     permission_classes = [permissions.IsAuthenticated]
+
+    def get_object(self, pk):
+        return get_object_or_404(VoiceClones, pk=pk)
+
+    def get(self, request, pk):
+        voice = self.get_object(pk)
+        serializer = VoiceClonesSerializer(voice)
+        return Response(serializer.data)
 
     def delete(self, request, clone_id, *args, **kwargs):
 
