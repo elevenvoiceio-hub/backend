@@ -32,3 +32,21 @@ class FeedbackTicket(models.Model):
 
     def __str__(self):
         return f"{self.ticket_id} - {self.subject}"
+
+
+class TicketMessage(models.Model):
+    ticket = models.ForeignKey(
+        FeedbackTicket, on_delete=models.CASCADE, related_name="messages"
+    )
+    sender = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    message = models.TextField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    # Optional: Boolean to easily style messages in UI (Agent vs User)
+    is_internal_note = models.BooleanField(default=False)
+
+    class Meta:
+        ordering = ["created_at"]
+
+    def __str__(self):
+        return f"Message by {self.sender} on Ticket #{self.ticket.ticket_id}"

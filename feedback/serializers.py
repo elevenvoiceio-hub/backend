@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import FeedbackTicket
+from .models import FeedbackTicket, TicketMessage
 
 
 class FeedbackTicketSerializer(serializers.ModelSerializer):
@@ -16,3 +16,17 @@ class FeedbackTicketSerializer(serializers.ModelSerializer):
             if obj.created_by and hasattr(obj.created_by, "email")
             else None
         )
+
+
+class TicketMessageSerializer(serializers.ModelSerializer):
+    sender_name = serializers.ReadOnlyField(source="sender.username")
+    sender_role = serializers.SerializerMethodField()
+
+    class Meta:
+        model = TicketMessage
+        fields = ["id", "sender", "sender_name", "sender_role", "message", "created_at"]
+        read_only_fields = ["sender", "ticket", "created_at"]
+
+    def get_sender_role(self, obj):
+        # dynamic logic to tell the UI if the sender is staff or the user
+        return "Admin" if obj.sender.role in ["admin", "subadmin"] else "User"

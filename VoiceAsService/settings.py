@@ -38,7 +38,7 @@ ALLOWED_HOSTS = [
     "localhost",
     ".onrender.com",  # Allow all subdomains on render.com
     ".asia-south1.run.app",
-    ".github.dev"
+    ".github.dev",
 ]
 
 
@@ -116,6 +116,7 @@ DB_HOST = os.environ.get("DB_HOST") or (
     f"/cloudsql/{INSTANCE_CONNECTION_NAME}" if INSTANCE_CONNECTION_NAME else ""
 )
 
+# Primary PostgreSQL database configuration
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.postgresql",
@@ -127,6 +128,16 @@ DATABASES = {
         "PORT": os.environ.get("DB_PORT", ""),
     }
 }
+
+# Fallback to SQLite if PostgreSQL is not configured
+if not all([os.environ.get("DB_NAME"), os.environ.get("DB_USER"), DB_PASSWORD]):
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": BASE_DIR / "db.sqlite3",
+        }
+    }
+
 # DATABASES = {
 #     "default": dj_database_url.config(
 #         default="postgresql://root:eptWOMQbIYdWOkoxA8oohHR9cMjIWoQW@dpg-d3bncrggjchc738j8d0g-a.oregon-postgres.render.com/voice_as_service"

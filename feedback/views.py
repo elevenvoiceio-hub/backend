@@ -1,11 +1,14 @@
+from django.shortcuts import get_object_or_404
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
-from .models import FeedbackTicket
-from .serializers import FeedbackTicketSerializer
+from rest_framework import generics, permissions
+from feedback.permission import IsTicketOwnerOrAdmin
+from .models import FeedbackTicket, TicketMessage
+from .serializers import FeedbackTicketSerializer, TicketMessageSerializer
 
 
 def is_admin(user):
@@ -170,3 +173,40 @@ class UserTicketsView(APIView):
         tickets = FeedbackTicket.objects.filter(created_by=request.user)
         serializer = FeedbackTicketSerializer(tickets, many=True)
         return Response(serializer.data)
+
+
+class TicketChatAPIView(generics.ListCreateAPIView):
+    serializer_class = TicketMessageSerializer
+    permission_classes = [permissions.IsAuthenticated, IsTicketOwnerOrAdmin]
+
+    def get_queryset(self):
+        """
+        Return messages only for the specific ticket ID in the URL.
+        Also validates that the user is allowed to see this ticket.
+        """
+        ticket_id = self.kwargs["ticket_id"]
+        ticket = get_object_or_404(FeedbackTicket, ticket_id=ticket_id)
+
+        # Check permissions explicitly for the parent ticket
+        self.check_object_permissions(self.request, ticket)
+
+        return TicketMessage.objects.filter(ticket=ticket)
+
+    def perform_create(self, serializer):
+        """
+        When a message is posted, automatically attach the current user
+        and the specific ticket ID.
+        """
+        ticket_id = self.kwargs["ticket_id"]
+        ticket = get_object_or_404(FeedbackTicket, ticket_id=ticket_id)
+
+        # Check permissions explicitly before saving
+        self.check_object_permissions(self.request, ticket)
+
+        # Logic: If user replies, maybe change status to 'Open'?
+        # If admin replies, change status to 'In Progress'?
+        if self.request.user.is_staff:
+            ticket.status = "in_progress"
+            ticket.save()
+
+        serializer.save(sender=self.request.user, ticket=ticket)
