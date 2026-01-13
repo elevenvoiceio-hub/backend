@@ -16,3 +16,22 @@ def apply_email_config():
     except Exception as e:
         # Optionally log the error
         pass
+
+
+def mask_secret(value: str) -> str:
+    """Return a masked version of a secret for safe display in API responses.
+
+    Keeps a short prefix/suffix visible for identification while hiding the
+    middle characters. Very short values are fully masked.
+    """
+    try:
+        if not value:
+            return value
+        s = str(value)
+        n = len(s)
+        if n <= 6:
+            return "*" * n
+        # show first 3 and last 3 characters, mask the rest
+        return s[:3] + "*" * (n - 6) + s[-3:]
+    except Exception:
+        return "***"

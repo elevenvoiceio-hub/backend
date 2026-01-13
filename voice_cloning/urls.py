@@ -15,6 +15,6 @@ urlpatterns = [
     path(
         "<str:clone_id>/",
         VoiceClonesDeleteAPIView.as_view(),
-        name="voiceclone-delete-custom",
+        name="voiceclone-get-delete-custom",
     ),
 ]

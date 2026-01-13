@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from .models import EmailConfig
+from VoiceAsService.utils import mask_secret
 
 
 class EmailConfigSerializer(serializers.ModelSerializer):
@@ -21,3 +22,10 @@ class EmailConfigSerializer(serializers.ModelSerializer):
             "created_by",
             "is_default",
         ]
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        pwd = data.get("password")
+        if pwd:
+            data["password"] = mask_secret(pwd)
+        return data

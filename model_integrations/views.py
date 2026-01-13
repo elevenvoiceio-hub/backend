@@ -165,7 +165,20 @@ class ElevenLabsTTSView(APIView):
                     {"error": "ElevenLabs TTS configuration not found."},
                     status=status.HTTP_404_NOT_FOUND,
                 )
-            increase_model_credits(len(text), config.first())
+            import math
+
+            # Use the configuration's token_multiplier when available (fallback to 1.0)
+            cfg = config.first()
+            multiplier = getattr(cfg, "token_multiplier", 1.0) or 1.0
+            try:
+                multiplier = float(multiplier)
+            except Exception:
+                multiplier = 1.0
+            # Ensure multiplier is sensible; if <=1, treat as 1.0 to avoid undercounting
+            if multiplier <= 1.0:
+                multiplier = 1.0
+            credits = math.ceil(len(text) * multiplier)
+            increase_model_credits(credits, cfg)
             api_key = config.first().api_key
             if not api_key:
                 return Response(
@@ -382,7 +395,18 @@ class LemonFoxTTSAPIView(APIView):
                 {"error": "LemonFox TTS configuration not found."},
                 status=status.HTTP_404_NOT_FOUND,
             )
-        increase_model_credits(len(text), config)
+        # Apply the model's token multiplier when counting credits
+        import math
+
+        multiplier = getattr(config, "token_multiplier", 1.0) or 1.0
+        try:
+            multiplier = float(multiplier)
+        except Exception:
+            multiplier = 1.0
+        if multiplier <= 1.0:
+            multiplier = 1.0
+        credits = math.ceil(len(text) * multiplier)
+        increase_model_credits(credits, config)
         api_key = config.api_key
         if not api_key:
             return Response(
@@ -439,7 +463,18 @@ class SpeechifyTTSAPIView(APIView):
                 {"error": "Speechify TTS configuration not found."},
                 status=status.HTTP_404_NOT_FOUND,
             )
-        increase_model_credits(len(text), config)
+        # Apply token multiplier from configuration
+        import math
+
+        multiplier = getattr(config, "token_multiplier", 1.0) or 1.0
+        try:
+            multiplier = float(multiplier)
+        except Exception:
+            multiplier = 1.0
+        if multiplier <= 1.0:
+            multiplier = 1.0
+        credits = math.ceil(len(text) * multiplier)
+        increase_model_credits(credits, config)
         token = config.api_key
         if not token:
             return Response(

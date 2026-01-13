@@ -154,7 +154,17 @@ class LabsTextToSpeechAPIView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        increase_model_credits(len(request.data.get("input", "")), config)
+        import math
+
+        multiplier = getattr(config, "token_multiplier", 1.0) or 1.0
+        try:
+            multiplier = float(multiplier)
+        except Exception:
+            multiplier = 1.0
+        if multiplier <= 1.0:
+            multiplier = 1.0
+        credits = math.ceil(len(request.data.get("input", "")) * multiplier)
+        increase_model_credits(credits, config)
         # Build the payload
         payload = {
             "input": request.data["input"],

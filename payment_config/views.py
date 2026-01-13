@@ -8,10 +8,20 @@ from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
 
 
+from VoiceAsService.utils import mask_secret
+
+
 class PaymentConfigSerializer(serializers.ModelSerializer):
     class Meta:
         model = PaymentConfig
         fields = "__all__"
+
+    def to_representation(self, instance):
+        data = super().to_representation(instance)
+        secret = data.get("secret_key")
+        if secret:
+            data["secret_key"] = mask_secret(secret)
+        return data
 
 
 class PaymentConfigListCreateAPIView(APIView):

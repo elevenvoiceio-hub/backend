@@ -351,9 +351,32 @@ class VoiceClonesListAPIView(APIView):
                 provider = getattr(obj.voice_cloning_model, "provider", None)
             item["provider"] = provider
         return Response(data)
-    
+
+
 class VoiceClonesDeleteAPIView(APIView):
     permission_classes = [permissions.IsAuthenticated]
+
+    @swagger_auto_schema(
+        operation_description="Retrieve a voice clone by its clone_id for the authenticated user.",
+        responses={200: VoiceClonesSerializer(), 404: "Not found"},
+    )
+    def get(self, request, clone_id, *args, **kwargs):
+        """Return a single voice clone owned by the authenticated user."""
+        obj = VoiceClones.objects.filter(user=request.user, clone_id=clone_id).first()
+        if not obj:
+            return Response(
+                {"error": "Voice clone not found or you don't have permission."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+        serializer = VoiceClonesSerializer(obj)
+        data = serializer.data
+        data["user_email"] = request.user.email
+        provider = None
+        if hasattr(obj, "voice_cloning_model") and obj.voice_cloning_model:
+            provider = getattr(obj.voice_cloning_model, "provider", None)
+            data["provider"] = provider
+            data["model_name"] = getattr(obj.voice_cloning_model, "model_name", None)
+        return Response(data)
 
     def delete(self, request, clone_id, *args, **kwargs):
 
